@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Textarea } from '@/components/ui/textarea'
 import Counter from '@/components/Counter'
-import Silk from '@/components/Silk/Silk'
+import AmbientBackground from '@/components/AmbientBackground'
 import './App.css'
 
 const EVENT = {
@@ -22,14 +22,6 @@ const initialForm = {
   attending: null,
   guests: 1,
   notes: '',
-}
-
-function AmbientBackground() {
-  return (
-    <div className="ambient" aria-hidden="true">
-      <Silk color="#b5735a" speed={3} scale={1} noiseIntensity={1.2} lightMode />
-    </div>
-  )
 }
 
 const SPARKLES = Array.from({ length: 10 }, (_, i) => ({
