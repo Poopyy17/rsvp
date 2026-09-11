@@ -1,0 +1,527 @@
+.page {
+  position: relative;
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1.5rem, 5vw, 3rem);
+  overflow: hidden;
+  background: radial-gradient(circle at 50% -10%, #fffaf0 0%, var(--bg) 55%);
+}
+
+/* Ambient background: Silk shader (reactbits.dev), sits behind the
+   opaque card so the form itself never moves — only the glow around it. */
+
+.ambient {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ambient canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 560px;
+  padding: clamp(2rem, 6vw, 3.25rem);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow:
+    0 30px 80px -40px rgba(38, 34, 28, 0.35),
+    0 2px 8px rgba(38, 34, 28, 0.04);
+
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 500ms var(--ease-out),
+    transform 500ms var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+/* Header */
+
+.invitation {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.75rem;
+}
+
+.event-name {
+  font-size: clamp(2.25rem, 6vw, 3.25rem);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.event-name-suffix {
+  font-size: 0.55em;
+}
+
+.event-details {
+  font-size: 0.9375rem;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-top: 0.25rem;
+}
+
+.ornament {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+}
+
+.ornament-line {
+  flex: 1;
+  height: 1px;
+  max-width: 150px;
+  background: var(--border);
+}
+
+.ornament-mark {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  background: var(--accent);
+  transform: rotate(45deg);
+}
+
+/* Form layout */
+
+.rsvp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.rsvp-form > * {
+  opacity: 0;
+  animation: field-in 450ms var(--ease-out) both;
+}
+
+.rsvp-form > *:nth-child(1) {
+  animation-delay: 150ms;
+}
+.rsvp-form > *:nth-child(2) {
+  animation-delay: 200ms;
+}
+.rsvp-form > *:nth-child(3) {
+  animation-delay: 250ms;
+}
+.rsvp-form > *:nth-child(4) {
+  animation-delay: 300ms;
+}
+.rsvp-form > *:nth-child(5) {
+  animation-delay: 350ms;
+}
+
+@keyframes field-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.field {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.field > label,
+.field > legend {
+  display: block;
+  width: 100%;
+  padding: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.field input[type='text'],
+.field input[type='email'],
+.field textarea {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  padding: 0.5rem 0.125rem;
+  font-size: 1rem;
+  resize: none;
+  /* shadcn's Input/Textarea ship a resting `shadow-xs` and a focus-visible
+     "ring" (also implemented as box-shadow) — both fight our plain
+     underline look, and don't reliably lose to unlayered CSS here (same
+     issue as the button :active override), hence !important. */
+  box-shadow: none !important;
+  transition: border-color 160ms ease;
+}
+
+.field input[type='text']:focus,
+.field input[type='email']:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  border-bottom-width: 2px;
+  padding-bottom: calc(0.5rem - 1px);
+  box-shadow: none !important;
+}
+
+/* Attending toggle */
+
+.toggle {
+  position: relative;
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.toggle-indicator {
+  position: absolute;
+  inset: 0;
+  width: 50%;
+  background: var(--accent);
+  transition: transform 220ms var(--ease-out);
+  z-index: 0;
+}
+
+.toggle--yes .toggle-indicator {
+  transform: translateX(0%);
+}
+
+.toggle--no .toggle-indicator {
+  transform: translateX(100%);
+}
+
+.toggle--none .toggle-indicator {
+  opacity: 0;
+}
+
+.toggle-option {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0.75rem 0.5rem;
+  font-size: 0.8125rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+  cursor: pointer;
+  user-select: none;
+  transition: color 200ms ease;
+}
+
+@media (max-width: 480px) {
+  .toggle-option {
+    padding: 0.75rem 0.125rem;
+    font-size: 0.625rem;
+    letter-spacing: 0;
+  }
+}
+
+.toggle-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Base UI's Radio.Root renders a hidden native <input> alongside its own
+   <span>, so among sibling <span>s the shared .toggle-indicator now also
+   competes for :first-of-type/:last-of-type — drive this off Base UI's own
+   data-checked attribute instead, which is unambiguous regardless of DOM
+   position. */
+.toggle-option[data-checked] {
+  color: var(--accent-ink);
+  font-weight: 500;
+}
+
+/* Conditional reveal (grid-rows trick avoids animating height directly) */
+
+.reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 300ms var(--ease-in-out);
+}
+
+.reveal--open {
+  grid-template-rows: 1fr;
+}
+
+.reveal-inner {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.reveal--open .reveal-inner {
+  opacity: 1;
+  transition: opacity 300ms ease 80ms;
+}
+
+/* Guest stepper */
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.25rem;
+  width: fit-content;
+}
+
+.stepper-button {
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 3px;
+  font-size: 1.125rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    transform 140ms var(--ease-out),
+    background 160ms ease,
+    opacity 160ms ease;
+}
+
+.stepper-button:active:not(:disabled) {
+  /* !important: overriding shadcn Button's own bundled active-state utility,
+     which otherwise wins this specific property regardless of our
+     unlayered-CSS/specificity advantage — see App.jsx migration notes. */
+  transform: scale(0.94) !important;
+}
+
+.stepper-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+@media (max-width: 480px) {
+  .stepper-button {
+    width: 2.75rem;
+    height: 2.75rem;
+    font-size: 1.25rem;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .stepper-button:hover:not(:disabled) {
+    background: var(--bg);
+  }
+}
+
+.stepper-value {
+  min-width: 1.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Counter's outer element is display:inline-block, so by default it aligns
+   to the surrounding text's baseline — reserving descender space below it
+   that isn't visually used, making the digit look pinned to the top of
+   this wrapper. Middle-align it against the line instead. */
+.stepper-value .counter-container {
+  vertical-align: middle;
+}
+
+/* Buttons */
+
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.submit-button {
+  margin-top: 0.5rem;
+  padding: 0.9rem 1.5rem;
+  background: var(--ink);
+  color: var(--accent-ink);
+  border: none;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 0 0 rgba(181, 115, 90, 0);
+  transition:
+    transform 140ms var(--ease-out),
+    background 200ms ease,
+    box-shadow 250ms var(--ease-out);
+}
+
+.submit-button:active {
+  /* !important: see .stepper-button:active note above. */
+  transform: scale(0.98) !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .submit-button:hover {
+    background: var(--accent);
+    box-shadow: 0 10px 28px -10px rgba(181, 115, 90, 0.55);
+  }
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  margin-top: 0.5rem;
+  color: var(--accent-warm);
+  font-size: 0.875rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .link-button:hover {
+    color: var(--ink);
+  }
+}
+
+/* Confirmation */
+
+.card--confirmation {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.seal-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.seal {
+  position: relative;
+  z-index: 1;
+  display: block;
+  color: var(--accent-warm);
+  opacity: 0;
+  transform: scale(0.5);
+  animation: seal-pop 750ms var(--ease-out) 100ms both;
+}
+
+.seal svg {
+  width: 56px;
+  height: 56px;
+  display: block;
+}
+
+@keyframes seal-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.confetti-burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.confetti-particle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px;
+  border-radius: 50%;
+  background: var(--accent-warm);
+  opacity: 0;
+  transform: rotate(var(--angle)) translateY(0) scale(0.4);
+  animation: confetti-pop 900ms var(--ease-out) both;
+  animation-delay: calc(180ms + var(--delay));
+}
+
+.confetti-particle:nth-child(3n + 1) {
+  width: 4px;
+  height: 4px;
+  margin: -2px;
+  background: var(--accent);
+}
+
+.confetti-particle:nth-child(3n + 2) {
+  background: var(--accent-soft);
+}
+
+@keyframes confetti-pop {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateY(0) scale(0.4);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateY(calc(-1 * var(--distance))) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti-burst {
+    display: none;
+  }
+}
+
+.confirmation-title {
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+}
+
+.confirmation-body {
+  color: var(--muted);
+  font-size: 1rem;
+  max-width: 32ch;
+}
