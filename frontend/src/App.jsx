@@ -101,8 +101,12 @@ function EventHeader() {
   )
 }
 
+// Purok is always a single digit (see PUROK_OPTIONS in Guests.jsx), so the
+// dash can be inserted automatically after it — the field only ever needs
+// digit keys, which sidesteps numeric keypads that have no "-" key.
 function sanitizePurokGrupo(value) {
-  return value.replace(/\s+/g, '-').replace(/[^\d-]/g, '')
+  const digits = value.replace(/\D/g, '')
+  return digits.length <= 1 ? digits : `${digits[0]}-${digits.slice(1)}`
 }
 
 function validate(form) {
