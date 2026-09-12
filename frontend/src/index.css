@@ -79,17 +79,6 @@ p {
   margin: 0;
 }
 
-button {
-  font: inherit;
-  color: inherit;
-}
-
-input,
-textarea {
-  font: inherit;
-  color: inherit;
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -111,7 +100,7 @@ textarea {
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
+  --color-muted: var(--border);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
@@ -140,5 +129,14 @@ textarea {
   }
   html {
     @apply font-sans;
+  }
+  button {
+    font: inherit;
+    color: inherit;
+  }
+  input,
+  textarea {
+    font: inherit;
+    color: inherit;
   }
 }

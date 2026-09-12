@@ -1,0 +1,128 @@
+.admin-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.admin-table th {
+  color: var(--muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+}
+
+.admin-thumb-button {
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  display: block;
+  background: none;
+  cursor: pointer;
+  transition: border-color 150ms var(--ease-out);
+}
+
+.admin-thumb-button:hover {
+  border-color: var(--accent);
+}
+
+.admin-thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  display: block;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.status-badge svg {
+  width: 13px;
+  height: 13px;
+}
+
+.status-badge--pending {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.status-badge--approved,
+.status-badge--yes {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.status-badge--rejected {
+  background: var(--danger);
+  color: #fff;
+}
+
+.status-badge--no {
+  background: var(--border);
+  color: var(--muted);
+}
+
+.admin-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.admin-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.admin-row--selected {
+  background: color-mix(in srgb, var(--accent-soft) 25%, transparent);
+}
+
+/* Floating batch-action bar, shown once one or more table rows are checked. */
+
+.batch-bar {
+  position: fixed;
+  left: 50%;
+  bottom: clamp(1rem, 4vw, 2rem);
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--accent-ink);
+  box-shadow: 0 8px 24px rgba(38, 34, 28, 0.28);
+  white-space: nowrap;
+}
+
+.batch-bar-count {
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding-left: 0.25rem;
+}
