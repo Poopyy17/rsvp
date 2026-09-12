@@ -1,6 +1,7 @@
 const { randomUUID } = require('node:crypto')
 const express = require('express')
 const multer = require('multer')
+const mongoose = require('mongoose')
 const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3')
 
 const { Image, Attendee } = require('../models')
@@ -8,6 +9,19 @@ const { Image, Attendee } = require('../models')
 const router = express.Router()
 
 const s3 = new S3Client({ region: process.env.AWS_REGION })
+
+// mongoose.connection.readyState: 0 disconnected, 1 connected, 2 connecting, 3 disconnecting.
+const MONGO_STATES = ['disconnected', 'connected', 'connecting', 'disconnecting']
+
+router.get('/health', (req, res) => {
+  const mongoState = MONGO_STATES[mongoose.connection.readyState] || 'unknown'
+  const healthy = mongoose.connection.readyState === 1
+  res.status(healthy ? 200 : 503).json({
+    status: healthy ? 'ok' : 'degraded',
+    mongo: mongoState,
+    uptime: process.uptime(),
+  })
+})
 
 const GUEST_LIMIT = 200
 
