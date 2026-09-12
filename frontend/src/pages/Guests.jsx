@@ -154,9 +154,9 @@ export default function Guests() {
     [guests, purokFilters, attendingFilters]
   )
 
-  useEffect(() => {
-    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-  }, [purokFilters, attendingFilters])
+  // Declined guests don't count toward the guest tally — only those attending.
+  const attendingGuestCount = guests.filter((guest) => guest.attending === 'yes').length
+  const filteredAttendingGuestCount = filteredGuests.filter((guest) => guest.attending === 'yes').length
 
   const activeFilterLabels = [
     purokFilters.length > 0 && `Purok ${purokFilters.join(', ')}`,
@@ -164,17 +164,34 @@ export default function Guests() {
       attendingFilters.map((value) => ATTENDING_OPTIONS.find((option) => option.value === value).label).join(', '),
   ].filter(Boolean)
 
+  function resetPageIndex() {
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+  }
+
   function togglePurokFilter(purok) {
     setPurokFilters((prev) => (prev.includes(purok) ? prev.filter((value) => value !== purok) : [...prev, purok]))
+    resetPageIndex()
+  }
+
+  function resetPurokFilter() {
+    setPurokFilters([])
+    resetPageIndex()
   }
 
   function toggleAttendingFilter(value) {
     setAttendingFilters((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]))
+    resetPageIndex()
+  }
+
+  function resetAttendingFilter() {
+    setAttendingFilters([])
+    resetPageIndex()
   }
 
   function clearFilters() {
     setPurokFilters([])
     setAttendingFilters([])
+    resetPageIndex()
   }
 
   async function handleExport() {
@@ -303,7 +320,7 @@ export default function Guests() {
                       className="chip"
                       aria-pressed={purokFilters.length === 0}
                       data-active={purokFilters.length === 0 || undefined}
-                      onClick={() => setPurokFilters([])}
+                      onClick={resetPurokFilter}
                     >
                       All
                     </button>
@@ -328,7 +345,7 @@ export default function Guests() {
                       className="segmented-option"
                       aria-pressed={attendingFilters.length === 0}
                       data-active={attendingFilters.length === 0 || undefined}
-                      onClick={() => setAttendingFilters([])}
+                      onClick={resetAttendingFilter}
                     >
                       Everyone
                     </button>
@@ -416,7 +433,7 @@ export default function Guests() {
 
             <div className="guests-footer">
               <p className="guests-footer-count">
-                {filteredGuests.length} of {guests.length} guests
+                {filteredAttendingGuestCount} of {attendingGuestCount} guests
               </p>
               <div className="guests-footer-controls">
                 <label className="guests-footer-page-size">
