@@ -15,29 +15,19 @@ const imageSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
-const MAX_GUESTS = 12
 const PUROK_GRUPO_PATTERN = /^\d+-\d+$/
 
-const additionalGuestSchema = new mongoose.Schema(
-  {
-    name: { type: String, trim: true, default: '' },
-    purokGrupo: {
-      type: String,
-      trim: true,
-      default: '',
-      validate: {
-        // Optional per additional guest, but must be well-formed if given.
-        validator: (value) => value === '' || PUROK_GRUPO_PATTERN.test(value),
-        message: 'Purok & Grupo must be in the format "1-2".',
-      },
-    },
-  },
-  { _id: false }
-)
+// Case-insensitive identity for an attendee, paired with their exact
+// purokGrupo — lets "Juan Cruz" and "juan cruz" in the same household be
+// recognized as the same person instead of creating a duplicate row.
+function normalizeNameKey(name) {
+  return typeof name === 'string' ? name.trim().toLowerCase() : ''
+}
 
 const attendeeSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
+    nameKey: { type: String, required: true },
     purokGrupo: {
       type: String,
       required: true,
@@ -45,22 +35,19 @@ const attendeeSchema = new mongoose.Schema(
       match: [PUROK_GRUPO_PATTERN, 'Purok & Grupo must be in the format "1-2".'],
     },
     attending: { type: String, required: true, enum: ['yes', 'no'] },
-    guests: { type: Number, required: true, min: 1, max: MAX_GUESTS },
-    additionalGuests: {
-      type: [additionalGuestSchema],
-      default: [],
-      validate: {
-        validator(additionalGuests) {
-          return additionalGuests.length === Math.max(0, this.guests - 1)
-        },
-        message: 'Number of additional guests must match the guest count.',
-      },
-    },
   },
   { timestamps: true }
 )
 
+attendeeSchema.pre('validate', function setNameKey() {
+  this.nameKey = normalizeNameKey(this.name)
+})
+
+// Enforces one attendee row per (person, household) at the database level,
+// regardless of how the name was cased on submission.
+attendeeSchema.index({ nameKey: 1, purokGrupo: 1 }, { unique: true })
+
 const Image = mongoose.model('Image', imageSchema)
 const Attendee = mongoose.model('Attendee', attendeeSchema)
 
-module.exports = { Image, Attendee }
+module.exports = { Image, Attendee, normalizeNameKey }

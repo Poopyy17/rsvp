@@ -4,7 +4,7 @@ const multer = require('multer')
 const mongoose = require('mongoose')
 const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3')
 
-const { Image, Attendee } = require('../models')
+const { Image, Attendee, normalizeNameKey } = require('../models')
 
 const router = express.Router()
 
@@ -24,6 +24,7 @@ router.get('/health', (req, res) => {
 })
 
 const GUEST_LIMIT = 200
+const MAX_GUESTS = 12
 
 // The event's day, Asia/Manila time (UTC+8, no DST) — pinned explicitly so
 // the cutoff means the same wall-clock moment regardless of where this
@@ -31,9 +32,36 @@ const GUEST_LIMIT = 200
 const RSVP_CUTOFF = new Date('2026-09-27T00:00:00+08:00')
 
 // Total confirmed headcount — declined RSVPs don't count against the cap.
+// Every attendee document is exactly one person now, so this is a straight count.
 async function getConfirmedGuestCount() {
-  const attendees = await Attendee.find({ attending: 'yes' }).select('guests')
-  return attendees.reduce((sum, attendee) => sum + attendee.guests, 0)
+  return Attendee.countDocuments({ attending: 'yes' })
+}
+
+// Turns one form submission (a primary attendee plus their optional
+// additionalGuests) into the flat list of individual people it implies —
+// each one gets its own attendee row, deduped independently by name +
+// purokGrupo, so resubmitting the primary never touches anyone else's row.
+function peopleFromSubmission({ name, purokGrupo, attending, guests, additionalGuests }) {
+  const people = [{ name, purokGrupo, attending }]
+
+  if (attending === 'yes' && Array.isArray(additionalGuests)) {
+    if (additionalGuests.length !== Math.max(0, (guests ?? 0) - 1)) {
+      throw Object.assign(new Error('Number of additional guests must match the guest count.'), {
+        name: 'ValidationError',
+        errors: { additionalGuests: { message: 'Number of additional guests must match the guest count.' } },
+      })
+    }
+    for (const guest of additionalGuests) {
+      const guestName = typeof guest?.name === 'string' ? guest.name.trim() : ''
+      // A guest with no name can't be stored (name is required) or deduped
+      // against later — skip it rather than error the whole submission out.
+      if (!guestName) continue
+      const guestPurokGrupo = (typeof guest?.purokGrupo === 'string' && guest.purokGrupo.trim()) || purokGrupo
+      people.push({ name: guestName, purokGrupo: guestPurokGrupo, attending: 'yes' })
+    }
+  }
+
+  return people
 }
 
 router.get('/rsvps/count', async (req, res) => {
@@ -56,23 +84,64 @@ router.post('/rsvps', async (req, res) => {
       })
     }
 
-    if (attending === 'yes' && typeof guests === 'number') {
+    if (typeof guests !== 'number' || guests < 1 || guests > MAX_GUESTS) {
+      return res.status(400).json({ error: `Number of guests must be between 1 and ${MAX_GUESTS}.` })
+    }
+
+    // One submission (a primary attendee plus their optional additional
+    // guests) becomes N independent people, each with their own row —
+    // resubmitting the primary only ever matches and updates their own row,
+    // never anyone else's.
+    const people = peopleFromSubmission({ name, purokGrupo, attending, guests, additionalGuests })
+
+    // Validate every implied person before writing any of them, so one bad
+    // entry can't leave a submission half-applied.
+    for (const person of people) {
+      await new Attendee(person).validate()
+    }
+
+    // Resubmitting the same person (case-insensitive name + exact
+    // purokGrupo) updates their existing row instead of creating a
+    // duplicate — the form never shows a "you already RSVP'd" error.
+    const existingByPerson = new Map()
+    let guestLimitDelta = 0
+    for (const person of people) {
+      const existing = await Attendee.findOne({ nameKey: normalizeNameKey(person.name), purokGrupo: person.purokGrupo })
+      existingByPerson.set(person, existing)
+      const oldContribution = existing?.attending === 'yes' ? 1 : 0
+      const newContribution = person.attending === 'yes' ? 1 : 0
+      guestLimitDelta += newContribution - oldContribution
+    }
+
+    if (guestLimitDelta > 0) {
       const currentCount = await getConfirmedGuestCount()
-      if (currentCount + guests > GUEST_LIMIT) {
+      if (currentCount + guestLimitDelta > GUEST_LIMIT) {
         return res.status(409).json({
           error: `We're so sorry — we've reached our limit of ${GUEST_LIMIT} guests and can no longer accept new RSVPs.`,
         })
       }
     }
 
-    const attendee = await Attendee.create({
-      name,
-      purokGrupo,
-      attending,
-      guests,
-      additionalGuests,
-    })
-    res.status(201).json({ id: attendee._id })
+    let primaryAttendee = null
+    let primaryWasExisting = false
+    for (const person of people) {
+      const nameKey = normalizeNameKey(person.name)
+      const existing = existingByPerson.get(person)
+      const attendee = existing
+        ? await Attendee.findOneAndUpdate(
+            { nameKey, purokGrupo: person.purokGrupo },
+            { $set: { ...person, nameKey } },
+            { returnDocument: 'after' }
+          )
+        : await Attendee.create({ ...person, nameKey })
+
+      if (person === people[0]) {
+        primaryAttendee = attendee
+        primaryWasExisting = Boolean(existing)
+      }
+    }
+
+    res.status(primaryWasExisting ? 200 : 201).json({ id: primaryAttendee._id })
   } catch (err) {
     if (err.name === 'ValidationError') {
       const message = Object.values(err.errors)[0]?.message || 'Invalid RSVP data.'
@@ -92,8 +161,6 @@ router.get('/rsvps', async (req, res) => {
         name: attendee.name,
         purokGrupo: attendee.purokGrupo,
         attending: attendee.attending,
-        guests: attendee.guests,
-        additionalGuests: attendee.additionalGuests,
         createdAt: attendee.createdAt,
       })),
     })

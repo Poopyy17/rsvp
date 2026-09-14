@@ -30,6 +30,14 @@ function formatDate(value) {
   return new Date(value).toLocaleDateString(undefined, { dateStyle: 'medium' })
 }
 
+// Names are stored as typed (so a resubmission's exact spelling wins), which
+// means casing can end up inconsistent — e.g. someone resubmitting on mobile
+// autocapitalize-off. Title-case it for display and export only.
+function toTitleCase(value) {
+  if (!value) return value
+  return value.replace(/\S+/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+}
+
 // Purok & Grupo is written "purok-grupo" (e.g. "4-6") — the filter only
 // looks at the purok, the first number.
 const PUROK_OPTIONS = [1, 2, 3, 4, 5, 6]
@@ -51,7 +59,7 @@ const columns = [
   columnHelper.accessor('name', {
     header: () => <div className="col-center">Name</div>,
     cell: (info) => (
-      <div className="col-center">{info.getValue() || <span className="cell-muted">Unnamed guest</span>}</div>
+      <div className="col-center">{toTitleCase(info.getValue()) || <span className="cell-muted">Unnamed guest</span>}</div>
     ),
   }),
   columnHelper.accessor('purokGrupo', {
@@ -212,7 +220,7 @@ export default function Guests() {
 
       filteredGuests.forEach((guest) => {
         worksheet.addRow({
-          name: guest.name || 'Unnamed guest',
+          name: toTitleCase(guest.name) || 'Unnamed guest',
           purokGrupo: guest.purokGrupo || '',
           attending: guest.attending === 'yes' ? 'Attending' : 'Declined',
           submitted: formatDate(guest.createdAt),
@@ -418,7 +426,7 @@ export default function Guests() {
                     <div key={row.id} className="guest-card" data-attending={guest.attending}>
                       <div className="guest-card-icon">{guest.purokGrupo || '—'}</div>
                       <div className="guest-card-body">
-                        <p className="guest-card-name">{guest.name || 'Unnamed guest'}</p>
+                        <p className="guest-card-name">{toTitleCase(guest.name) || 'Unnamed guest'}</p>
                         <p className="guest-card-date">{formatDate(guest.createdAt)}</p>
                       </div>
                       <span className={`status-badge status-badge--${guest.attending}`}>

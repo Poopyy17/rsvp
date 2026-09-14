@@ -31,6 +31,43 @@ function formatDate(value) {
   return new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
+// Shared by the table row, the card view, and the preview dialog — each
+// puts the same Approve/Reject/Delete trio in a differently-sized spot.
+function PhotoActions({ photo, idPrefix, size, onApprove, onReject, onDelete, deleteDisabled }) {
+  return (
+    <div className="admin-actions">
+      <LoadingButton
+        id={`${idPrefix}-approve-${photo.id}`}
+        type="button"
+        size={size}
+        onClick={() => onApprove(photo.id)}
+        disabled={photo.status === 'approved'}
+      >
+        Approve
+      </LoadingButton>
+      <LoadingButton
+        id={`${idPrefix}-reject-${photo.id}`}
+        type="button"
+        size={size}
+        variant="outline"
+        onClick={() => onReject(photo.id)}
+        disabled={photo.status === 'rejected'}
+      >
+        Reject
+      </LoadingButton>
+      <Button
+        type="button"
+        size={size}
+        variant="destructive"
+        disabled={deleteDisabled}
+        onClick={() => onDelete([photo.id])}
+      >
+        Delete
+      </Button>
+    </div>
+  )
+}
+
 const columnHelper = legacyCreateColumnHelper()
 
 export default function AdminPhotos() {
@@ -199,41 +236,17 @@ export default function AdminPhotos() {
       columnHelper.display({
         id: 'actions',
         header: 'Actions',
-        cell: ({ row }) => {
-          const photo = row.original
-          return (
-            <div className="admin-actions">
-              <LoadingButton
-                id={`approve-${photo.id}`}
-                type="button"
-                size="sm"
-                onClick={() => handleApprove(photo.id)}
-                disabled={photo.status === 'approved'}
-              >
-                Approve
-              </LoadingButton>
-              <LoadingButton
-                id={`reject-${photo.id}`}
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => handleReject(photo.id)}
-                disabled={photo.status === 'rejected'}
-              >
-                Reject
-              </LoadingButton>
-              <Button
-                type="button"
-                size="sm"
-                variant="destructive"
-                disabled={pendingId !== null}
-                onClick={() => setDeleteTargetIds([photo.id])}
-              >
-                Delete
-              </Button>
-            </div>
-          )
-        },
+        cell: ({ row }) => (
+          <PhotoActions
+            photo={row.original}
+            idPrefix="row"
+            size="sm"
+            onApprove={handleApprove}
+            onReject={handleReject}
+            onDelete={setDeleteTargetIds}
+            deleteDisabled={pendingId !== null}
+          />
+        ),
       }),
     ],
     [handleApprove, handleReject, pendingId]
@@ -284,32 +297,75 @@ export default function AdminPhotos() {
         )}
 
         {status === 'ready' && photos.length > 0 && (
-          <div className="admin-table-wrap">
-            <table className="admin-table">
-              <thead>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <tr key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => (
-                      <th key={header.id}>
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(header.column.columnDef.header, header.getContext())}
-                      </th>
-                    ))}
-                  </tr>
-                ))}
-              </thead>
-              <tbody>
-                {table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className={row.getIsSelected() ? 'admin-row--selected' : undefined}>
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div className="admin-table-wrap">
+              <table className="admin-table">
+                <thead>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <tr key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <th key={header.id}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                        </th>
+                      ))}
+                    </tr>
+                  ))}
+                </thead>
+                <tbody>
+                  {table.getRowModel().rows.map((row) => (
+                    <tr key={row.id} className={row.getIsSelected() ? 'admin-row--selected' : undefined}>
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="photo-cards">
+              {photos.map((photo) => (
+                <div key={photo.id} className="photo-card">
+                  <div className="photo-card-media">
+                    <input
+                      type="checkbox"
+                      className="admin-checkbox photo-card-checkbox"
+                      checked={Boolean(rowSelection[photo.id])}
+                      onChange={() =>
+                        setRowSelection((prev) => {
+                          const next = { ...prev }
+                          if (next[photo.id]) delete next[photo.id]
+                          else next[photo.id] = true
+                          return next
+                        })
+                      }
+                      aria-label="Select photo"
+                    />
+                    <button type="button" className="admin-thumb-button" onClick={() => setActiveId(photo.id)}>
+                      <Media src={photo.url} contentType={photo.contentType} className="admin-thumb" muted playsInline />
+                    </button>
+                  </div>
+                  <div className="photo-card-body">
+                    <div className="photo-card-meta">
+                      <span className={`status-badge status-badge--${photo.status}`}>{photo.status}</span>
+                      <p className="photo-card-date">{formatDate(photo.createdAt)}</p>
+                    </div>
+                    <PhotoActions
+                      photo={photo}
+                      idPrefix="card"
+                      size="sm"
+                      onApprove={handleApprove}
+                      onReject={handleReject}
+                      onDelete={setDeleteTargetIds}
+                      deleteDisabled={pendingId !== null}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </section>
 
@@ -318,33 +374,14 @@ export default function AdminPhotos() {
         activeId={activeId}
         onActiveIdChange={setActiveId}
         renderActions={(photo) => (
-          <div className="admin-actions">
-            <LoadingButton
-              id={`approve-${photo.id}`}
-              type="button"
-              onClick={() => handleApprove(photo.id)}
-              disabled={photo.status === 'approved'}
-            >
-              Approve
-            </LoadingButton>
-            <LoadingButton
-              id={`reject-${photo.id}`}
-              type="button"
-              variant="outline"
-              onClick={() => handleReject(photo.id)}
-              disabled={photo.status === 'rejected'}
-            >
-              Reject
-            </LoadingButton>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={pendingId !== null}
-              onClick={() => setDeleteTargetIds([photo.id])}
-            >
-              Delete
-            </Button>
-          </div>
+          <PhotoActions
+            photo={photo}
+            idPrefix="preview"
+            onApprove={handleApprove}
+            onReject={handleReject}
+            onDelete={setDeleteTargetIds}
+            deleteDisabled={pendingId !== null}
+          />
         )}
       />
 

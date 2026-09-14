@@ -9,35 +9,9 @@ export async function submitRsvp(rsvp) {
   return data
 }
 
-// Flattens each RSVP submission into one row per actual guest — the
-// submitter plus one row per additional guest, each with their own
-// Purok & Grupo — since additional guests are only ever recorded when the
-// submitter is attending, they're always "attending" too.
-function toGuestRows(rsvp) {
-  const rows = [
-    {
-      id: rsvp.id,
-      name: rsvp.name,
-      purokGrupo: rsvp.purokGrupo,
-      attending: rsvp.attending,
-      createdAt: rsvp.createdAt,
-    },
-  ]
-  rsvp.additionalGuests?.forEach((guest, index) => {
-    rows.push({
-      id: `${rsvp.id}-guest-${index}`,
-      name: guest.name,
-      purokGrupo: guest.purokGrupo,
-      attending: 'yes',
-      createdAt: rsvp.createdAt,
-    })
-  })
-  return rows
-}
-
 export async function getRsvps() {
   const { data } = await client.get('/api/rsvps')
-  return data.rsvps.flatMap(toGuestRows)
+  return data.rsvps
 }
 
 export async function getGuestCount() {

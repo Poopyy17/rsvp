@@ -3,6 +3,106 @@
   overflow-x: auto;
 }
 
+/* Card view: hidden by default (desktop shows the table), swapped in for
+   narrow screens below — mirrors the Guests page's table/card pattern. */
+
+.photo-cards {
+  display: none;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Left column is the photo itself, filling the card's full height rather
+   than sitting inline as a small square icon; the right column groups the
+   status, date, and actions together instead of splitting the actions
+   into their own full-width row underneath. */
+
+.photo-card {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.photo-card-media {
+  position: relative;
+  flex: 0 0 7rem;
+  min-height: 7rem;
+  /* Flex items default to a content-based min-width, and an <img>'s own
+     intrinsic size counts as content — without this, a wider/taller
+     source photo can force this column (and the whole card) past 7rem,
+     which is exactly why cards were coming out different sizes. */
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* The button and image are taken out of normal flow (absolutely
+   positioned to fill their box) rather than sized with height:100%. A
+   percentage height still depends on the image's own intrinsic aspect
+   ratio when the row's height isn't settled yet — which is exactly why
+   a portrait photo produced a taller card than a landscape one. Out of
+   flow, they can't influence the row's height at all; the row is sized
+   purely by .photo-card-body's content, and the image just fills
+   whatever box results. */
+.photo-card-media .admin-thumb-button {
+  position: absolute;
+  inset: 0;
+  border: none;
+  border-radius: 0;
+}
+
+.photo-card-media .admin-thumb {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.photo-card-checkbox {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 1;
+  outline: 2px solid var(--surface);
+  outline-offset: 0;
+}
+
+.photo-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+}
+
+.photo-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.photo-card-date {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+@media (max-width: 640px) {
+  .admin-table-wrap {
+    display: none;
+  }
+
+  .photo-cards {
+    display: flex;
+  }
+}
+
 .admin-table {
   width: 100%;
   border-collapse: collapse;
@@ -113,16 +213,50 @@
   display: flex;
   align-items: center;
   gap: 1rem;
+  max-width: calc(100vw - 2rem);
   padding: 0.75rem 1rem;
   border-radius: 999px;
   background: var(--ink);
   color: var(--accent-ink);
   box-shadow: 0 8px 24px rgba(38, 34, 28, 0.28);
   white-space: nowrap;
+  /* Safety net, not the primary fix below — if the row ever still can't
+     fit (a very narrow device, or a future extra action), scroll instead
+     of clipping or wrapping the pill out of shape. */
+  overflow-x: auto;
+}
+
+/* The shared .admin-actions class allows wrapping for the table/card
+   contexts, where there's room to spare — but inside this fixed-width
+   floating pill, wrapping is what stretched it into a tall vertical stack.
+   Keep it one row here and shrink it to fit instead. */
+.batch-bar .admin-actions {
+  flex-wrap: nowrap;
 }
 
 .batch-bar-count {
   font-size: 0.875rem;
   font-weight: 500;
   padding-left: 0.25rem;
+}
+
+@media (max-width: 640px) {
+  .batch-bar {
+    gap: 0.6rem;
+    padding: 0.6rem 0.85rem;
+  }
+
+  .batch-bar .admin-actions {
+    gap: 0.35rem;
+  }
+
+  .batch-bar .admin-actions button {
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  .batch-bar-count {
+    font-size: 0.8125rem;
+  }
 }

@@ -13,7 +13,7 @@ import './App.css'
 
 const EVENT = {
   date: 'Sunday, the 27th of September',
-  time: '5:00 PM in the afternoon',
+  time: '5:00 PM',
   venue: 'Villa Susana, Vatican City Dr, Talon 2 Las Piñas City',
 }
 
