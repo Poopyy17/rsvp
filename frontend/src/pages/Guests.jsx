@@ -14,6 +14,7 @@ import {
   Loader2,
   Pencil,
   RefreshCw,
+  Search,
   Trash2,
 } from 'lucide-react'
 import { flexRender } from '@tanstack/react-table'
@@ -137,6 +138,7 @@ export default function Guests() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
   const [purokFilters, setPurokFilters] = useState([])
   const [attendingFilters, setAttendingFilters] = useState([])
+  const [searchQuery, setSearchQuery] = useState('')
   const [editingGuest, setEditingGuest] = useState(null)
   const [editForm, setEditForm] = useState({ name: '', purokGrupo: '', attending: 'yes' })
   const [editErrors, setEditErrors] = useState({})
@@ -241,21 +243,22 @@ export default function Guests() {
     }
   }
 
-  const filteredGuests = useMemo(
-    () =>
-      guests.filter((guest) => {
-        if (purokFilters.length > 0 && !purokFilters.includes(firstPurokNumber(guest.purokGrupo))) return false
-        if (attendingFilters.length > 0 && !attendingFilters.includes(guest.attending)) return false
-        return true
-      }),
-    [guests, purokFilters, attendingFilters]
-  )
+  const filteredGuests = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase()
+    return guests.filter((guest) => {
+      if (purokFilters.length > 0 && !purokFilters.includes(firstPurokNumber(guest.purokGrupo))) return false
+      if (attendingFilters.length > 0 && !attendingFilters.includes(guest.attending)) return false
+      if (query && !guest.name?.toLowerCase().includes(query)) return false
+      return true
+    })
+  }, [guests, purokFilters, attendingFilters, searchQuery])
 
   // Declined guests don't count toward the guest tally — only those attending.
   const attendingGuestCount = guests.filter((guest) => guest.attending === 'yes').length
   const filteredAttendingGuestCount = filteredGuests.filter((guest) => guest.attending === 'yes').length
 
   const activeFilterLabels = [
+    searchQuery.trim() && `"${searchQuery.trim()}"`,
     purokFilters.length > 0 && `Purok ${purokFilters.join(', ')}`,
     attendingFilters.length > 0 &&
       attendingFilters.map((value) => ATTENDING_OPTIONS.find((option) => option.value === value).label).join(', '),
@@ -288,6 +291,12 @@ export default function Guests() {
   function clearFilters() {
     setPurokFilters([])
     setAttendingFilters([])
+    setSearchQuery('')
+    resetPageIndex()
+  }
+
+  function handleSearchChange(event) {
+    setSearchQuery(event.target.value)
     resetPageIndex()
   }
 
@@ -433,80 +442,93 @@ export default function Guests() {
         {status === 'ready' && guests.length > 0 && (
           <>
             <div className="guests-toolbar">
-              <button
-                type="button"
-                className="toolbar-dropdown-trigger"
-                onClick={handleRefresh}
-                disabled={refreshing}
-                aria-label="Refresh guests"
-              >
-                <RefreshCw aria-hidden="true" className={refreshing ? 'animate-spin' : undefined} />
-                Refresh
-              </button>
+              <label className="guests-search">
+                <Search aria-hidden="true" />
+                <input
+                  type="search"
+                  placeholder="Search by name…"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  aria-label="Search guests by name"
+                />
+              </label>
 
-              <details ref={filterDetailsRef} className="toolbar-dropdown">
-                <summary className="toolbar-dropdown-trigger">
-                  <ListFilter aria-hidden="true" />
-                  {activeFilterLabels.length > 0 ? activeFilterLabels.join(' · ') : 'Filter'}
-                  <ChevronDown aria-hidden="true" />
-                </summary>
-                <div className="toolbar-dropdown-menu toolbar-dropdown-menu--filters">
-                  <p className="toolbar-dropdown-label">Purok</p>
-                  <div className="chip-grid">
-                    <button
-                      type="button"
-                      className="chip"
-                      aria-pressed={purokFilters.length === 0}
-                      data-active={purokFilters.length === 0 || undefined}
-                      onClick={resetPurokFilter}
-                    >
-                      All
-                    </button>
-                    {PUROK_OPTIONS.map((purok) => (
+              <div className="guests-toolbar-actions">
+                <button
+                  type="button"
+                  className="toolbar-dropdown-trigger"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  aria-label="Refresh guests"
+                >
+                  <RefreshCw aria-hidden="true" className={refreshing ? 'animate-spin' : undefined} />
+                  Refresh
+                </button>
+
+                <details ref={filterDetailsRef} className="toolbar-dropdown">
+                  <summary className="toolbar-dropdown-trigger">
+                    <ListFilter aria-hidden="true" />
+                    {activeFilterLabels.length > 0 ? activeFilterLabels.join(' · ') : 'Filter'}
+                    <ChevronDown aria-hidden="true" />
+                  </summary>
+                  <div className="toolbar-dropdown-menu toolbar-dropdown-menu--filters">
+                    <p className="toolbar-dropdown-label">Purok</p>
+                    <div className="chip-grid">
                       <button
-                        key={purok}
                         type="button"
                         className="chip"
-                        aria-pressed={purokFilters.includes(purok)}
-                        data-active={purokFilters.includes(purok) || undefined}
-                        onClick={() => togglePurokFilter(purok)}
+                        aria-pressed={purokFilters.length === 0}
+                        data-active={purokFilters.length === 0 || undefined}
+                        onClick={resetPurokFilter}
                       >
-                        {purok}
+                        All
                       </button>
-                    ))}
-                  </div>
+                      {PUROK_OPTIONS.map((purok) => (
+                        <button
+                          key={purok}
+                          type="button"
+                          className="chip"
+                          aria-pressed={purokFilters.includes(purok)}
+                          data-active={purokFilters.includes(purok) || undefined}
+                          onClick={() => togglePurokFilter(purok)}
+                        >
+                          {purok}
+                        </button>
+                      ))}
+                    </div>
 
-                  <p className="toolbar-dropdown-label">Attending</p>
-                  <div className="segmented">
-                    <button
-                      type="button"
-                      className="segmented-option"
-                      aria-pressed={attendingFilters.length === 0}
-                      data-active={attendingFilters.length === 0 || undefined}
-                      onClick={resetAttendingFilter}
-                    >
-                      Everyone
-                    </button>
-                    {ATTENDING_OPTIONS.map((option) => (
+                    <p className="toolbar-dropdown-label">Attending</p>
+                    <div className="segmented">
                       <button
-                        key={option.value}
                         type="button"
                         className="segmented-option"
-                        aria-pressed={attendingFilters.includes(option.value)}
-                        data-active={attendingFilters.includes(option.value) || undefined}
-                        onClick={() => toggleAttendingFilter(option.value)}
+                        aria-pressed={attendingFilters.length === 0}
+                        data-active={attendingFilters.length === 0 || undefined}
+                        onClick={resetAttendingFilter}
                       >
-                        {option.label}
+                        Everyone
                       </button>
-                    ))}
+                      {ATTENDING_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className="segmented-option"
+                          aria-pressed={attendingFilters.includes(option.value)}
+                          data-active={attendingFilters.includes(option.value) || undefined}
+                          onClick={() => toggleAttendingFilter(option.value)}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              </details>
+                </details>
 
-              <button type="button" className="toolbar-dropdown-trigger" onClick={handleExport}>
-                <Download aria-hidden="true" />
-                Export
-              </button>
+                <button type="button" className="toolbar-dropdown-trigger" onClick={handleExport}>
+                  <Download aria-hidden="true" />
+                  Export
+                </button>
+              </div>
             </div>
 
             <div className="guests-table-frame">
