@@ -23,7 +23,7 @@ router.get('/health', (req, res) => {
   })
 })
 
-const GUEST_LIMIT = 200
+const GUEST_LIMIT = 250
 const MAX_GUESTS = 12
 
 // The event's day, Asia/Manila time (UTC+8, no DST) — pinned explicitly so
