@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
   ChevronDown,
@@ -9,13 +9,40 @@ import {
   CircleCheck,
   CircleX,
   Download,
+  EllipsisVertical,
   ListFilter,
+  Loader2,
+  Pencil,
   RefreshCw,
+  Trash2,
 } from 'lucide-react'
 import { flexRender } from '@tanstack/react-table'
 import { getCoreRowModel, getPaginationRowModel, legacyCreateColumnHelper, useLegacyTable } from '@tanstack/react-table/legacy'
-import { getRsvps } from '@/api'
+import { deleteRsvp, getRsvps, updateRsvp } from '@/api'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { ADMIN_ACCESS_CODE } from '@/lib/access-code'
 import { useLoading } from '@/lib/loading-context'
 import PageLoader from '@/components/PageLoader'
@@ -46,6 +73,15 @@ function firstPurokNumber(purokGrupo) {
   return Number.parseInt(purokGrupo?.split('-')[0], 10)
 }
 
+// Purok and Grupo are each a plain number, written as "purok-grupo" (e.g.
+// "1-2") — kept in sync with the public RSVP form's own copy in App.jsx.
+const PUROK_GRUPO_PATTERN = /^\d+-\d+$/
+
+function sanitizePurokGrupo(value) {
+  const digits = value.replace(/\D/g, '')
+  return digits.length <= 1 ? digits : `${digits[0]}-${digits.slice(1)}`
+}
+
 const ATTENDING_OPTIONS = [
   { value: 'yes', label: 'Attending' },
   { value: 'no', label: 'Declined' },
@@ -55,7 +91,7 @@ const REFRESH_ID = 'refresh-guests'
 
 const columnHelper = legacyCreateColumnHelper()
 
-const columns = [
+const baseColumns = [
   columnHelper.accessor('name', {
     header: () => <div className="col-center">Name</div>,
     cell: (info) => (
@@ -101,6 +137,10 @@ export default function Guests() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
   const [purokFilters, setPurokFilters] = useState([])
   const [attendingFilters, setAttendingFilters] = useState([])
+  const [editingGuest, setEditingGuest] = useState(null)
+  const [editForm, setEditForm] = useState({ name: '', purokGrupo: '', attending: 'yes' })
+  const [editErrors, setEditErrors] = useState({})
+  const [deleteTargetId, setDeleteTargetId] = useState(null)
   const filterDetailsRef = useRef(null)
   const { pendingId, run } = useLoading()
   const refreshing = pendingId === REFRESH_ID
@@ -150,6 +190,55 @@ export default function Guests() {
         .then((rsvps) => setGuests(rsvps))
         .catch(() => toast.error('Failed to refresh guests.'))
     )
+  }
+
+  const openEdit = useCallback((guest) => {
+    setEditForm({ name: guest.name, purokGrupo: guest.purokGrupo, attending: guest.attending })
+    setEditErrors({})
+    setEditingGuest(guest)
+  }, [])
+
+  function validateEditForm(form) {
+    const errors = {}
+    if (!form.name.trim()) errors.name = 'Please enter the guest’s full name.'
+    if (!PUROK_GRUPO_PATTERN.test(form.purokGrupo)) {
+      errors.purokGrupo = 'Please use the format "1-2" (purok-grupo).'
+    }
+    return errors
+  }
+
+  async function handleEditSubmit(event) {
+    event.preventDefault()
+    const errors = validateEditForm(editForm)
+    setEditErrors(errors)
+    if (Object.keys(errors).length > 0) return
+
+    await run('edit-guest-submit', async () => {
+      try {
+        const updated = await updateRsvp(editingGuest.id, {
+          name: editForm.name.trim(),
+          purokGrupo: editForm.purokGrupo,
+          attending: editForm.attending,
+        })
+        setGuests((prev) => prev.map((guest) => (guest.id === updated.id ? updated : guest)))
+        setEditingGuest(null)
+        toast.success('Guest updated.')
+      } catch (err) {
+        toast.error(err.response?.data?.error || 'Failed to update guest.')
+      }
+    })
+  }
+
+  async function confirmDelete() {
+    const id = deleteTargetId
+    setDeleteTargetId(null)
+    try {
+      await deleteRsvp(id)
+      setGuests((prev) => prev.filter((guest) => guest.id !== id))
+      toast.success('Guest deleted.')
+    } catch {
+      toast.error('Failed to delete guest.')
+    }
   }
 
   const filteredGuests = useMemo(
@@ -246,6 +335,47 @@ export default function Guests() {
       toast.error('Failed to export guests.')
     }
   }
+
+  const columns = useMemo(
+    () => [
+      ...baseColumns,
+      columnHelper.display({
+        id: 'actions',
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => {
+          const guest = row.original
+          return (
+            <div className="col-center">
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Actions for ${toTitleCase(guest.name) || 'guest'}`}
+                    />
+                  }
+                >
+                  <EllipsisVertical aria-hidden="true" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => openEdit(guest)}>
+                    <Pencil aria-hidden="true" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem variant="destructive" onClick={() => setDeleteTargetId(guest.id)}>
+                    <Trash2 aria-hidden="true" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )
+        },
+      }),
+    ],
+    [openEdit]
+  )
 
   const table = useLegacyTable({
     data: filteredGuests,
@@ -433,6 +563,29 @@ export default function Guests() {
                         {guest.attending === 'yes' ? <CircleCheck /> : <CircleX />}
                         {guest.attending === 'yes' ? 'Attending' : 'Declined'}
                       </span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Actions for ${toTitleCase(guest.name) || 'guest'}`}
+                            />
+                          }
+                        >
+                          <EllipsisVertical aria-hidden="true" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem onClick={() => openEdit(guest)}>
+                            <Pencil aria-hidden="true" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem variant="destructive" onClick={() => setDeleteTargetId(guest.id)}>
+                            <Trash2 aria-hidden="true" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   )
                 })
@@ -503,6 +656,105 @@ export default function Guests() {
           </>
         )}
       </section>
+
+      <Dialog open={Boolean(editingGuest)} onOpenChange={(next) => !next && setEditingGuest(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit guest</DialogTitle>
+            <DialogDescription>
+              Update {editingGuest ? toTitleCase(editingGuest.name) || 'this guest' : 'this guest'}&rsquo;s
+              details.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form className="edit-guest-form" onSubmit={handleEditSubmit} noValidate>
+            <div className="field">
+              <Label htmlFor="edit-guest-name">Full name</Label>
+              <Input
+                id="edit-guest-name"
+                type="text"
+                required
+                aria-invalid={editErrors.name ? 'true' : undefined}
+                aria-describedby={editErrors.name ? 'edit-guest-name-error' : undefined}
+                value={editForm.name}
+                onChange={(event) => setEditForm((prev) => ({ ...prev, name: event.target.value }))}
+              />
+              {editErrors.name && (
+                <p className="field-error" id="edit-guest-name-error">
+                  {editErrors.name}
+                </p>
+              )}
+            </div>
+
+            <div className="field">
+              <Label htmlFor="edit-guest-purok-grupo">Purok & Grupo</Label>
+              <Input
+                id="edit-guest-purok-grupo"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="e.g. 1-2"
+                required
+                aria-invalid={editErrors.purokGrupo ? 'true' : undefined}
+                aria-describedby={editErrors.purokGrupo ? 'edit-guest-purok-grupo-error' : undefined}
+                value={editForm.purokGrupo}
+                onChange={(event) =>
+                  setEditForm((prev) => ({ ...prev, purokGrupo: sanitizePurokGrupo(event.target.value) }))
+                }
+              />
+              {editErrors.purokGrupo && (
+                <p className="field-error" id="edit-guest-purok-grupo-error">
+                  {editErrors.purokGrupo}
+                </p>
+              )}
+            </div>
+
+            <fieldset className="field">
+              <legend>Attending?</legend>
+              <RadioGroup
+                className={`toggle toggle--${editForm.attending}`}
+                value={editForm.attending}
+                onValueChange={(value) => setEditForm((prev) => ({ ...prev, attending: value }))}
+                required
+              >
+                <span className="toggle-indicator" aria-hidden="true" />
+                <RadioGroupItem value="yes">Attending</RadioGroupItem>
+                <RadioGroupItem value="no">Declined</RadioGroupItem>
+              </RadioGroup>
+            </fieldset>
+
+            <DialogFooter>
+              <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+              <Button type="submit" disabled={pendingId !== null}>
+                {pendingId === 'edit-guest-submit' && <Loader2 className="animate-spin" aria-hidden="true" />}
+                Save changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={Boolean(deleteTargetId)} onOpenChange={(next) => !next && setDeleteTargetId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this guest?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes them from the guest list. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pendingId !== null}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={pendingId !== null}
+              onClick={() => run('delete-guest-confirm', confirmDelete)}
+            >
+              {pendingId === 'delete-guest-confirm' && <Loader2 className="animate-spin" aria-hidden="true" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   )
 }

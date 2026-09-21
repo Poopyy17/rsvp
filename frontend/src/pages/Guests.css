@@ -352,3 +352,9 @@
   align-items: center;
   gap: 0.4rem;
 }
+
+.edit-guest-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}

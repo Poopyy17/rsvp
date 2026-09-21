@@ -14,6 +14,15 @@ export async function getRsvps() {
   return data.rsvps
 }
 
+export async function updateRsvp(id, rsvp) {
+  const { data } = await client.put(`/api/rsvps/${id}`, rsvp)
+  return data
+}
+
+export async function deleteRsvp(id) {
+  await client.delete(`/api/rsvps/${id}`)
+}
+
 export async function getGuestCount() {
   const { data } = await client.get('/api/rsvps/count')
   return data

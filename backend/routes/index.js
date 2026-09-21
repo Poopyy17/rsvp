@@ -170,6 +170,69 @@ router.get('/rsvps', async (req, res) => {
   }
 })
 
+function toRsvp(attendee) {
+  return {
+    id: attendee._id,
+    name: attendee.name,
+    purokGrupo: attendee.purokGrupo,
+    attending: attendee.attending,
+    createdAt: attendee.createdAt,
+  }
+}
+
+router.put('/rsvps/:id', async (req, res) => {
+  const { name, purokGrupo, attending } = req.body || {}
+
+  try {
+    const attendee = await Attendee.findById(req.params.id)
+    if (!attendee) return res.status(404).json({ error: 'Guest not found.' })
+
+    // Only an attendee newly turning "yes" here counts against the cap —
+    // one already confirmed isn't adding a new head, and staying/going
+    // "no" never does.
+    if (attending === 'yes' && attendee.attending !== 'yes') {
+      const currentCount = await getConfirmedGuestCount()
+      if (currentCount + 1 > GUEST_LIMIT) {
+        return res.status(409).json({
+          error: `We're so sorry — we've reached our limit of ${GUEST_LIMIT} guests and can no longer accept new RSVPs.`,
+        })
+      }
+    }
+
+    attendee.set({ name, purokGrupo, attending })
+    await attendee.save()
+
+    res.json(toRsvp(attendee))
+  } catch (err) {
+    if (err.name === 'CastError') {
+      return res.status(404).json({ error: 'Guest not found.' })
+    }
+    if (err.name === 'ValidationError') {
+      const message = Object.values(err.errors)[0]?.message || 'Invalid guest data.'
+      return res.status(400).json({ error: message })
+    }
+    if (err.code === 11000) {
+      return res.status(409).json({ error: 'A guest with that name and Purok & Grupo already exists.' })
+    }
+    console.error('Failed to update guest:', err)
+    res.status(500).json({ error: 'Failed to update guest.' })
+  }
+})
+
+router.delete('/rsvps/:id', async (req, res) => {
+  try {
+    const attendee = await Attendee.findByIdAndDelete(req.params.id)
+    if (!attendee) return res.status(404).json({ error: 'Guest not found.' })
+    res.status(204).end()
+  } catch (err) {
+    if (err.name === 'CastError') {
+      return res.status(404).json({ error: 'Guest not found.' })
+    }
+    console.error('Failed to delete guest:', err)
+    res.status(500).json({ error: 'Failed to delete guest.' })
+  }
+})
+
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024
 const MAX_VIDEO_SIZE = 15 * 1024 * 1024
 
