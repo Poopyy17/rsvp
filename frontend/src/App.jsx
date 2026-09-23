@@ -40,7 +40,7 @@ const emptyAdditionalGuest = { name: '', purokGrupo: '' }
 
 const SUBMIT_ID = 'rsvp-submit'
 
-function GuestTally({ count, limit }) {
+function GuestTally({ count }) {
   // Mount at 0 and step to the real count a tick later, so the digits
   // actually roll into view instead of appearing already-settled — the
   // Counter only animates a value *change*, and by the time we know the
@@ -69,10 +69,10 @@ function GuestTally({ count, limit }) {
           textColor="var(--accent)"
           fontWeight="600"
         />
-        <span className="guest-tally-max"> of {limit} guests joining us</span>
+        <span className="guest-tally-max"> guests joining us</span>
       </span>
       <span className="sr-only" role="status">
-        {count} of {limit} guests have confirmed so far.
+        {count} guests have confirmed so far.
       </span>
     </div>
   )
@@ -133,7 +133,6 @@ function App() {
   const [submitError, setSubmitError] = useState(null)
   const [submitted, setSubmitted] = useState(null)
   const [confirmedGuestCount, setConfirmedGuestCount] = useState(null)
-  const [guestLimit, setGuestLimit] = useState(null)
   const [countStatus, setCountStatus] = useState('loading')
   const { pendingId, run } = useLoading()
   const submitting = pendingId === SUBMIT_ID
@@ -141,9 +140,8 @@ function App() {
 
   function refreshGuestCount() {
     return getGuestCount()
-      .then(({ count, limit }) => {
+      .then(({ count }) => {
         setConfirmedGuestCount(count)
-        setGuestLimit(limit)
         setCountStatus('ready')
       })
       .catch(() => setCountStatus('error'))
@@ -253,8 +251,6 @@ function App() {
     )
   }
 
-  const guestLimitReached = countStatus === 'ready' && confirmedGuestCount >= guestLimit
-
   if (submitted) {
     const firstName = submitted.name.trim().split(/\s+/)[0]
     return (
@@ -276,28 +272,15 @@ function App() {
     )
   }
 
-  if (guestLimitReached) {
-    return (
-      <main className="page">
-        <AmbientBackground />
-        <div className="card card--confirmation">
-          <p className="confirmation-title">We're so sorry.</p>
-          <p className="confirmation-body">
-            We've reached our limit of {guestLimit} guests and can no longer accept new RSVPs. Thank you so much for
-            your understanding — we hope to celebrate with you again soon.
-          </p>
-        </div>
-      </main>
-    )
-  }
-
   return (
     <main className="page">
       <AmbientBackground />
       <div className="card">
         <EventHeader />
 
-        {countStatus === 'ready' && <GuestTally count={confirmedGuestCount} limit={guestLimit} />}
+        {countStatus === 'ready' && <GuestTally count={confirmedGuestCount} />}
+
+        <p className="seats-notice">Please note that seats are limited.</p>
 
         <form className="rsvp-form" onSubmit={handleSubmit} noValidate>
           <div className="field">

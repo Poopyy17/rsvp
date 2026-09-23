@@ -23,7 +23,6 @@ router.get('/health', (req, res) => {
   })
 })
 
-const GUEST_LIMIT = 250
 const MAX_GUESTS = 12
 
 // The event's day, Asia/Manila time (UTC+8, no DST) — pinned explicitly so
@@ -31,7 +30,7 @@ const MAX_GUESTS = 12
 // server happens to run. Keep in sync with frontend/src/App.jsx.
 const RSVP_CUTOFF = new Date('2026-09-27T00:00:00+08:00')
 
-// Total confirmed headcount — declined RSVPs don't count against the cap.
+// Total confirmed headcount — declined RSVPs aren't counted.
 // Every attendee document is exactly one person now, so this is a straight count.
 async function getConfirmedGuestCount() {
   return Attendee.countDocuments({ attending: 'yes' })
@@ -67,7 +66,7 @@ function peopleFromSubmission({ name, purokGrupo, attending, guests, additionalG
 router.get('/rsvps/count', async (req, res) => {
   try {
     const count = await getConfirmedGuestCount()
-    res.json({ count, limit: GUEST_LIMIT })
+    res.json({ count })
   } catch (err) {
     console.error('Failed to count guests:', err)
     res.status(500).json({ error: 'Failed to count guests.' })
@@ -104,22 +103,9 @@ router.post('/rsvps', async (req, res) => {
     // purokGrupo) updates their existing row instead of creating a
     // duplicate — the form never shows a "you already RSVP'd" error.
     const existingByPerson = new Map()
-    let guestLimitDelta = 0
     for (const person of people) {
       const existing = await Attendee.findOne({ nameKey: normalizeNameKey(person.name), purokGrupo: person.purokGrupo })
       existingByPerson.set(person, existing)
-      const oldContribution = existing?.attending === 'yes' ? 1 : 0
-      const newContribution = person.attending === 'yes' ? 1 : 0
-      guestLimitDelta += newContribution - oldContribution
-    }
-
-    if (guestLimitDelta > 0) {
-      const currentCount = await getConfirmedGuestCount()
-      if (currentCount + guestLimitDelta > GUEST_LIMIT) {
-        return res.status(409).json({
-          error: `We're so sorry — we've reached our limit of ${GUEST_LIMIT} guests and can no longer accept new RSVPs.`,
-        })
-      }
     }
 
     let primaryAttendee = null
@@ -186,18 +172,6 @@ router.put('/rsvps/:id', async (req, res) => {
   try {
     const attendee = await Attendee.findById(req.params.id)
     if (!attendee) return res.status(404).json({ error: 'Guest not found.' })
-
-    // Only an attendee newly turning "yes" here counts against the cap —
-    // one already confirmed isn't adding a new head, and staying/going
-    // "no" never does.
-    if (attending === 'yes' && attendee.attending !== 'yes') {
-      const currentCount = await getConfirmedGuestCount()
-      if (currentCount + 1 > GUEST_LIMIT) {
-        return res.status(409).json({
-          error: `We're so sorry — we've reached our limit of ${GUEST_LIMIT} guests and can no longer accept new RSVPs.`,
-        })
-      }
-    }
 
     attendee.set({ name, purokGrupo, attending })
     await attendee.save()

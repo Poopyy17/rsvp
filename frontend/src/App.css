@@ -126,6 +126,13 @@
   margin-left: 0.35rem;
 }
 
+.seats-notice {
+  margin: 0 0 1.5rem;
+  font-size: 0.8125rem;
+  text-align: center;
+  color: var(--muted);
+}
+
 /* Form layout */
 
 .rsvp-form {
