@@ -19,11 +19,9 @@ const EVENT = {
 
 const MAX_GUESTS = 12
 
-// The event's day, Asia/Manila time (UTC+8, no DST) — pinned explicitly so
-// the cutoff means the same wall-clock moment regardless of where the
-// visitor's browser (or the server) happens to think it is. RSVPs close
-// once the event has arrived. Keep in sync with backend/routes/index.js.
-const RSVP_CUTOFF = new Date('2026-09-27T00:00:00+08:00')
+// RSVPs are closed; the form is replaced by a closing card.
+// Keep in sync with backend/routes/index.js.
+const RSVPS_CLOSED = true
 
 // Purok and Grupo are each a plain number, written as "purok-grupo" (e.g. "1-2").
 const PUROK_GRUPO_PATTERN = /^\d+-\d+$/
@@ -136,8 +134,7 @@ function App() {
   const [countStatus, setCountStatus] = useState('loading')
   const { pendingId, run } = useLoading()
   const submitting = pendingId === SUBMIT_ID
-  const pastCutoff = Date.now() >= RSVP_CUTOFF.getTime()
-
+  
   function refreshGuestCount() {
     return getGuestCount()
       .then(({ count }) => {
@@ -148,10 +145,10 @@ function App() {
   }
 
   useEffect(() => {
-    // No point checking capacity once RSVPs are closed for the date.
-    if (pastCutoff) return
+    // No point checking capacity once RSVPs are closed.
+    if (RSVPS_CLOSED) return
     refreshGuestCount()
-    // Only ever runs once, at mount — intentionally not reactive to pastCutoff.
+    // Only ever runs once, at mount — intentionally not reactive.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -224,15 +221,15 @@ function App() {
     refreshGuestCount()
   }
 
-  if (pastCutoff) {
+  if (RSVPS_CLOSED) {
     return (
       <main className="page">
         <AmbientBackground />
         <div className="card card--confirmation">
-          <p className="confirmation-title">We're so sorry.</p>
+          <p className="confirmation-title">RSVPs are now closed.</p>
           <p className="confirmation-body">
-            RSVPs are now closed — we&rsquo;ve arrived at the day of the celebration. Thank you so much for your love
-            and support!
+            We&rsquo;re no longer accepting responses. Thank you so much for your love and support — we&rsquo;ll see
+            you at the celebration!
           </p>
         </div>
       </main>

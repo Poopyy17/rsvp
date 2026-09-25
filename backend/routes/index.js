@@ -25,10 +25,9 @@ router.get('/health', (req, res) => {
 
 const MAX_GUESTS = 12
 
-// The event's day, Asia/Manila time (UTC+8, no DST) — pinned explicitly so
-// the cutoff means the same wall-clock moment regardless of where this
-// server happens to run. Keep in sync with frontend/src/App.jsx.
-const RSVP_CUTOFF = new Date('2026-09-27T00:00:00+08:00')
+// RSVPs are closed; new submissions are rejected.
+// Keep in sync with frontend/src/App.jsx.
+const RSVPS_CLOSED = true
 
 // Total confirmed headcount — declined RSVPs aren't counted.
 // Every attendee document is exactly one person now, so this is a straight count.
@@ -77,10 +76,8 @@ router.post('/rsvps', async (req, res) => {
   const { name, purokGrupo, attending, guests, additionalGuests } = req.body || {}
 
   try {
-    if (Date.now() >= RSVP_CUTOFF.getTime()) {
-      return res.status(409).json({
-        error: "RSVPs are now closed — we've arrived at the day of the celebration.",
-      })
+    if (RSVPS_CLOSED) {
+      return res.status(409).json({ error: "RSVPs are now closed. We'll see you at the celebration!" })
     }
 
     if (typeof guests !== 'number' || guests < 1 || guests > MAX_GUESTS) {
