@@ -74,6 +74,19 @@ function firstPurokNumber(purokGrupo) {
   return Number.parseInt(purokGrupo?.split('-')[0], 10)
 }
 
+function grupoNumber(purokGrupo) {
+  return Number.parseInt(purokGrupo?.split('-')[1], 10)
+}
+
+// Export order: purok, then grupo (numerically, so 1-2 precedes 1-10), then name.
+function compareForExport(a, b) {
+  return (
+    firstPurokNumber(a.purokGrupo) - firstPurokNumber(b.purokGrupo) ||
+    grupoNumber(a.purokGrupo) - grupoNumber(b.purokGrupo) ||
+    (a.name ?? '').localeCompare(b.name ?? '', undefined, { sensitivity: 'base' })
+  )
+}
+
 // Purok and Grupo are each a plain number, written as "purok-grupo" (e.g.
 // "1-2") — kept in sync with the public RSVP form's own copy in App.jsx.
 const PUROK_GRUPO_PATTERN = /^\d+-\d+$/
@@ -307,28 +320,42 @@ export default function Guests() {
       // otherwise download it just for this one admin-only button.
       const { default: ExcelJS } = await import('exceljs')
       const workbook = new ExcelJS.Workbook()
-      const worksheet = workbook.addWorksheet('Guests')
+      const sortedGuests = [...filteredGuests].sort(compareForExport)
 
-      worksheet.columns = [
-        { header: 'Name', key: 'name', width: 24 },
-        { header: 'Purok & Grupo', key: 'purokGrupo', width: 14 },
-        { header: 'Attending', key: 'attending', width: 12 },
-        { header: 'Submitted', key: 'submitted', width: 14 },
-      ]
+      function addGuestSheet(sheetName, guests) {
+        const worksheet = workbook.addWorksheet(sheetName)
+        worksheet.columns = [
+          { header: 'Name', key: 'name', width: 24 },
+          { header: 'Purok & Grupo', key: 'purokGrupo', width: 14 },
+          { header: 'Attending', key: 'attending', width: 12 },
+          { header: 'Submitted', key: 'submitted', width: 14 },
+        ]
 
-      filteredGuests.forEach((guest) => {
-        worksheet.addRow({
-          name: toTitleCase(guest.name) || 'Unnamed guest',
-          purokGrupo: guest.purokGrupo || '',
-          attending: guest.attending === 'yes' ? 'Attending' : 'Declined',
-          submitted: formatDate(guest.createdAt),
+        guests.forEach((guest) => {
+          worksheet.addRow({
+            name: toTitleCase(guest.name) || 'Unnamed guest',
+            purokGrupo: guest.purokGrupo || '',
+            attending: guest.attending === 'yes' ? 'Attending' : 'Declined',
+            submitted: formatDate(guest.createdAt),
+          })
         })
-      })
 
-      worksheet.getRow(1).eachCell((cell) => {
-        cell.font = { bold: true }
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } }
+        worksheet.getRow(1).eachCell((cell) => {
+          cell.font = { bold: true }
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } }
+        })
+      }
+
+      // One sheet per purok. Anyone whose purok falls outside 1–6 goes on an
+      // "Other" sheet so they aren't silently dropped from the export.
+      PUROK_OPTIONS.forEach((purok) => {
+        addGuestSheet(
+          `Purok ${purok}`,
+          sortedGuests.filter((guest) => firstPurokNumber(guest.purokGrupo) === purok)
+        )
       })
+      const otherGuests = sortedGuests.filter((guest) => !PUROK_OPTIONS.includes(firstPurokNumber(guest.purokGrupo)))
+      if (otherGuests.length > 0) addGuestSheet('Other', otherGuests)
 
       const buffer = await workbook.xlsx.writeBuffer()
       const blob = new Blob([buffer], {
